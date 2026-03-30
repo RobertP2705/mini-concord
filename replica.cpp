@@ -17,13 +17,17 @@ Replica::Replica(int initial_stock) : remaining_stock(initial_stock), curr_seque
     if(multicast_sock < 0) {
         throw std::runtime_error("Failed to create multicast socket");
     }
+    int reuse = 1;
+    if (setsockopt(multicast_sock, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
+        perror("Setting SO_REUSEADDR error");
+        close(multicast_sock);
+    }
 
     struct sockaddr_in multicast_addr;
     memset(&multicast_addr, 0, sizeof(multicast_addr));
     multicast_addr.sin_family = AF_INET;
     multicast_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     multicast_addr.sin_port = htons(MULTICAST_PORT);
-
     if (bind(multicast_sock, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr)) < 0) {
         close(multicast_sock);
         throw std::runtime_error("Multicast bind error");
@@ -32,7 +36,7 @@ Replica::Replica(int initial_stock) : remaining_stock(initial_stock), curr_seque
     struct ip_mreq mreq;
     inet_pton(AF_INET, MULTICAST_GROUP, &mreq.imr_multiaddr);
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-
+    
     if (setsockopt(multicast_sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         close(multicast_sock);
         throw std::runtime_error("Failed to join multicast group");
@@ -82,8 +86,6 @@ void Replica::run(int multicast_sock, struct sockaddr_in sender_addr, socklen_t 
         if (activity < 0) {
             std::cerr << "Select error" << std::endl;
             break;
-        } else if (activity == 0) {
-            std::cout << "No messages received in the last 5 seconds" << std::endl;
         } else {
             if (FD_ISSET(multicast_sock, &temp_fds)) {
                 char buffer[BUFFER_SIZE] = {0};

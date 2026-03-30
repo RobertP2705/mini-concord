@@ -14,7 +14,6 @@ constexpr int PORT = 8080;
 constexpr int BUFFER_SIZE = 1024;
 constexpr int MULTICAST_PORT = 8081;
 constexpr const char* MULTICAST_GROUP = "239.0.0.1";
-
 void Sequencer::run(int new_socket, int multicast_sock) {
     char buffer[BUFFER_SIZE] = {0};
     struct sockaddr_in multicast_addr;
@@ -26,13 +25,17 @@ void Sequencer::run(int new_socket, int multicast_sock) {
     while (true) {
         ssize_t valread = read(new_socket, buffer, BUFFER_SIZE);
         send(new_socket, "Order received", strlen("Order received"), 0);
+        std::cout << "Received order: " << buffer << "; Appending sequence number: " << sequenceNumber << std::endl;
         if(valread > 0) {
+            std::lock_guard<std::mutex> lock(mtx);
             sequenceNumber++;
             std::string order(buffer, valread);
             std::string message = std::to_string(sequenceNumber) + ":" + order;
             sendto(multicast_sock, message.c_str(), message.size(), 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr));
         }
     }
+
+    close(new_socket);
 }
 
 Sequencer::Sequencer() {
@@ -66,11 +69,6 @@ Sequencer::Sequencer() {
     struct sockaddr_in client_addr;
     socklen_t addrlen = sizeof(client_addr);
 
-    int new_socket = accept(server_fd, (struct sockaddr*)&client_addr, &addrlen);
-    if (new_socket < 0) {
-        close(server_fd);
-        throw std::runtime_error("Failed to accept connection");
-    }
 
     int multicast_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if(multicast_sock < 0) {
@@ -78,9 +76,19 @@ Sequencer::Sequencer() {
         throw std::runtime_error("Failed to create multicast socket");
     }
 
-    run(new_socket, multicast_sock);
+    while(true){
+        int new_socket = accept(server_fd, (struct sockaddr*)&client_addr, &addrlen);
+        if (new_socket < 0) {
+            close(server_fd);
+            throw std::runtime_error("Failed to accept connection");
+        }
+        // starta thread
+        std::thread t(&Sequencer::run, this, new_socket, multicast_sock);
+        t.detach();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 
-    close(new_socket);
+
     close(server_fd);
     close(multicast_sock);
 }
