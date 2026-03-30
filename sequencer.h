@@ -6,7 +6,7 @@
 
 class Sequencer {
     private: 
-        volatile int sequenceNumber;
+        volatile int sequenceNumber = 0;
     public:
         Sequencer();
 };

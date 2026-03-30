@@ -15,6 +15,17 @@ constexpr int BUFFER_SIZE = 1024;
 constexpr int MULTICAST_PORT = 8081;
 constexpr const char* MULTICAST_GROUP = "239.0.0.1";
 
+class Sequencer {
+    private: 
+        volatile int sequenceNumber = 0;
+    public:
+        Sequencer();
+        void run(int server_fd, struct sockaddr_in address, socklen_t addrlen, char buffer[BUFFER_SIZE], int multicast_sock, struct sockaddr_in multicast_addr){
+            
+        };
+};
+
+
 Sequencer::Sequencer() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if(server_fd < 0) {
@@ -59,7 +70,6 @@ Sequencer::Sequencer() {
         std::string ack = "ACK for TCP";
         send(new_socket, ack.c_str(), ack.size(), 0);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         int multicast_sock = socket(AF_INET, SOCK_DGRAM, 0);
         if(multicast_sock < 0) {
             close(new_socket);
@@ -73,20 +83,15 @@ Sequencer::Sequencer() {
         multicast_addr.sin_port = htons(MULTICAST_PORT);
         inet_pton(AF_INET, MULTICAST_GROUP, &multicast_addr.sin_addr);
 
-        const char* message = "hello multicasting";
-        size_t message_len = strlen(message);
+        std::string message = std::to_string(sequenceNumber) + ":" + std::string(buffer);
+        size_t message_len = message.length();
+        sequenceNumber++;
 
-        if(sendto(multicast_sock, message, message_len, 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr)) < 0) {
+        if(sendto(multicast_sock, message.c_str(), message_len, 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr)) < 0) {
             close(multicast_sock);
             close(new_socket);
             close(server_fd);
             throw std::runtime_error("Failed to send multicast message");
         }
-
-        close(multicast_sock);
     }
-
-    close(new_socket);
-    close(server_fd);
 }
-

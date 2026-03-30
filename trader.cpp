@@ -1,13 +1,26 @@
 #include "trader.h"
 
 constexpr int PORT = 8080;
-constexpr int BUFFER_SIZE = 1024;
 
+void Trader::run(int socket, char buffer[TRADER_BUFFER_SIZE]) {
+    while (true) {
+        std::string order;
+        std::getline(std::cin, order);
+        if (order == "exit") {
+            break;
+        }
+        send(socket, order.c_str(), order.size(), 0);
+        ssize_t valread = read(socket, buffer, TRADER_BUFFER_SIZE);
+        if(valread > 0) {
+            std::cout << "Received: " << buffer << std::endl;
+        }
+    }
+}
 
 Trader::Trader() {
     int sock = 0;
     struct sockaddr_in serv_addr;
-    char buffer[BUFFER_SIZE] = {0};
+    char buffer[TRADER_BUFFER_SIZE] = {0};
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         throw std::runtime_error("Socket creation error");
@@ -25,14 +38,5 @@ Trader::Trader() {
         throw std::runtime_error("Connection Failed");
     }
 
-    std::string hello = "Hello from client";
-    send(sock, hello.c_str(), hello.size(), 0);
-    std::cout << "Hello message sent" << std::endl;
-
-    ssize_t valread = read(sock, buffer, BUFFER_SIZE);
-    if(valread > 0) {
-        std::cout << "Received: " << buffer << std::endl;
-    }
-
-    close(sock);
+    run(sock,buffer);
 }
