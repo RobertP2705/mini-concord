@@ -15,16 +15,25 @@ constexpr int BUFFER_SIZE = 1024;
 constexpr int MULTICAST_PORT = 8081;
 constexpr const char* MULTICAST_GROUP = "239.0.0.1";
 
-class Sequencer {
-    private: 
-        volatile int sequenceNumber = 0;
-    public:
-        Sequencer();
-        void run(int server_fd, struct sockaddr_in address, socklen_t addrlen, char buffer[BUFFER_SIZE], int multicast_sock, struct sockaddr_in multicast_addr){
-            
-        };
-};
+void Sequencer::run(int new_socket, int multicast_sock) {
+    char buffer[BUFFER_SIZE] = {0};
+    struct sockaddr_in multicast_addr;
+    memset(&multicast_addr, 0, sizeof(multicast_addr));
+    multicast_addr.sin_family = AF_INET;
+    inet_pton(AF_INET, MULTICAST_GROUP, &multicast_addr.sin_addr);
+    multicast_addr.sin_port = htons(MULTICAST_PORT);
 
+    while (true) {
+        ssize_t valread = read(new_socket, buffer, BUFFER_SIZE);
+        send(new_socket, "Order received", strlen("Order received"), 0);
+        if(valread > 0) {
+            sequenceNumber++;
+            std::string order(buffer, valread);
+            std::string message = std::to_string(sequenceNumber) + ":" + order;
+            sendto(multicast_sock, message.c_str(), message.size(), 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr));
+        }
+    }
+}
 
 Sequencer::Sequencer() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -63,35 +72,15 @@ Sequencer::Sequencer() {
         throw std::runtime_error("Failed to accept connection");
     }
 
-    char buffer[BUFFER_SIZE] = {0};
-    ssize_t valread = read(new_socket, buffer, BUFFER_SIZE);
-    if(valread > 0) {
-        std::cout << "Sequencer received: " << buffer << std::endl;
-        std::string ack = "ACK for TCP";
-        send(new_socket, ack.c_str(), ack.size(), 0);
-
-        int multicast_sock = socket(AF_INET, SOCK_DGRAM, 0);
-        if(multicast_sock < 0) {
-            close(new_socket);
-            close(server_fd);
-            throw std::runtime_error("Failed to create multicast socket");
-        }
-
-        struct sockaddr_in multicast_addr;
-        memset(&multicast_addr, 0, sizeof(multicast_addr));
-        multicast_addr.sin_family = AF_INET;
-        multicast_addr.sin_port = htons(MULTICAST_PORT);
-        inet_pton(AF_INET, MULTICAST_GROUP, &multicast_addr.sin_addr);
-
-        std::string message = std::to_string(sequenceNumber) + ":" + std::string(buffer);
-        size_t message_len = message.length();
-        sequenceNumber++;
-
-        if(sendto(multicast_sock, message.c_str(), message_len, 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr)) < 0) {
-            close(multicast_sock);
-            close(new_socket);
-            close(server_fd);
-            throw std::runtime_error("Failed to send multicast message");
-        }
+    int multicast_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if(multicast_sock < 0) {
+        close(server_fd);
+        throw std::runtime_error("Failed to create multicast socket");
     }
+
+    run(new_socket, multicast_sock);
+
+    close(new_socket);
+    close(server_fd);
+    close(multicast_sock);
 }

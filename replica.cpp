@@ -47,7 +47,6 @@ Replica::Replica(int initial_stock) : remaining_stock(initial_stock), curr_seque
 // quantity_buffer format: "sequenceNumber:BUY quantity"
 void Replica::process_order(std::string quantity_buffer) {
     int expected_sequence_number = this->curr_sequence_num+1;
-
     size_t colon_pos = quantity_buffer.find(':');
     size_t space_pos = quantity_buffer.find(' ', colon_pos);
 
@@ -58,6 +57,7 @@ void Replica::process_order(std::string quantity_buffer) {
     int seq_num = std::stoi(sequence_number);
     int qty = std::stoi(amount);
     if (seq_num == expected_sequence_number) {
+        this->curr_sequence_num = expected_sequence_number; 
         if (qty <= remaining_stock) {
             remaining_stock -= qty;
             std::cout << "Order processed. Remaining stock: " << remaining_stock << std::endl;
