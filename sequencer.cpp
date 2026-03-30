@@ -7,9 +7,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
+#include <chrono>
 
 constexpr int PORT = 8080;
 constexpr int BUFFER_SIZE = 1024;
+constexpr int MULTICAST_PORT = 8081;
+constexpr const char* MULTICAST_GROUP = "239.0.0.1";
 
 Sequencer::Sequencer() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -52,8 +56,34 @@ Sequencer::Sequencer() {
     ssize_t valread = read(new_socket, buffer, BUFFER_SIZE);
     if(valread > 0) {
         std::cout << "Sequencer received: " << buffer << std::endl;
-        std::string ack = "ACK from sequencer";
+        std::string ack = "ACK for TCP";
         send(new_socket, ack.c_str(), ack.size(), 0);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        int multicast_sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if(multicast_sock < 0) {
+            close(new_socket);
+            close(server_fd);
+            throw std::runtime_error("Failed to create multicast socket");
+        }
+
+        struct sockaddr_in multicast_addr;
+        memset(&multicast_addr, 0, sizeof(multicast_addr));
+        multicast_addr.sin_family = AF_INET;
+        multicast_addr.sin_port = htons(MULTICAST_PORT);
+        inet_pton(AF_INET, MULTICAST_GROUP, &multicast_addr.sin_addr);
+
+        const char* message = "hello multicasting";
+        size_t message_len = strlen(message);
+
+        if(sendto(multicast_sock, message, message_len, 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr)) < 0) {
+            close(multicast_sock);
+            close(new_socket);
+            close(server_fd);
+            throw std::runtime_error("Failed to send multicast message");
+        }
+
+        close(multicast_sock);
     }
 
     close(new_socket);

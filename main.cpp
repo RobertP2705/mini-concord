@@ -13,7 +13,6 @@ int main() {
             Sequencer sequencer;
         });
 
-        // Give sequencer time to start listening before trader connects.
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
         std::cout << "Starting trader client" << std::endl;
