@@ -85,6 +85,7 @@ void Replica::run(int multicast_sock, struct sockaddr_in sender_addr, socklen_t 
     std::ifstream logFile("transaction_log.txt");
     std::string line;
     while (std::getline(logFile,line)){
+        std::cout << "processing log line: " << line << std::endl;
         process_order(line);
     }
 
