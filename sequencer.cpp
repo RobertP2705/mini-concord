@@ -34,7 +34,7 @@ void Sequencer::run(int new_socket, int multicast_sock) {
             sendto(multicast_sock, message.c_str(), message.size(), 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr));
             
             std::ofstream logFile("transaction_log.txt", std::ios::app);
-            logFile << sequenceNumber << ":BUY " << order << std::endl;
+            logFile << sequenceNumber << ":" << order << std::endl;
             logFile.close();
         }
     }
