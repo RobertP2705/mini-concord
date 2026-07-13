@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <thread>
 #include <chrono>
+#include <ifstream>
 
 constexpr int BUFFER_SIZE = 1024;
 constexpr int MULTICAST_PORT = 8081;
