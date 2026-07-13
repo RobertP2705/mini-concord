@@ -80,6 +80,16 @@ void Replica::run(int multicast_sock, struct sockaddr_in sender_addr, socklen_t 
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(multicast_sock, &readfds);
+
+    //on startup rebuild from transaction log
+    std::ifstream logFile("transaction_log.txt");
+    std::string line;
+    while (std::getline(logFile,line)){
+        process_order(line);
+    }
+
+
+
     while (true) {
         fd_set temp_fds = readfds;
         int activity = select(multicast_sock + 1, &temp_fds, NULL, NULL, &timeout);

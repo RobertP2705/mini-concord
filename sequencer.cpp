@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <thread>
 #include <chrono>
-
+#include <fstream>
 constexpr int PORT = 8080;
 constexpr int BUFFER_SIZE = 1024;
 constexpr int MULTICAST_PORT = 8081;
@@ -32,6 +32,10 @@ void Sequencer::run(int new_socket, int multicast_sock) {
             std::string order(buffer, valread);
             std::string message = std::to_string(sequenceNumber) + ":" + order;
             sendto(multicast_sock, message.c_str(), message.size(), 0, (struct sockaddr*)&multicast_addr, sizeof(multicast_addr));
+            
+            std::ofstream logFile("transaction_log.txt", std::ios::app);
+            logFile << sequenceNumber << ":BUY " << order << std::endl;
+            logFile.close();
         }
     }
 
